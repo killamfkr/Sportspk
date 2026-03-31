@@ -12,7 +12,7 @@
         "changelog": "Polished settings page (sections and help text), channel primary image for Jellyfin UI, meta imagePath + zip packaging, friendlier folder descriptions.",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/killamfkr/Sportspk/releases/download/v1.3.3/live-matches_1.3.3.0.zip",
-        "checksum": "ca2b87814543cc911aaf4d54b8a24f22",
+        "checksum": "a4e40f9fd990cace8ecb376bf5b371f7",
         "timestamp": "2026-03-31T22:00:00Z"
       },
       {
