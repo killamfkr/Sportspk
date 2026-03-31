@@ -1,0 +1,56 @@
+# Build and attach the plugin zip to a GitHub Release when you push a version tag (e.g. v1.3.0).
+# If the MD5 differs from manifest.json (Linux zip vs Windows), update the checksum in manifest.json and push.
+
+name: Release plugin package
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Create zip (name matches Jellyfin manifest sourceUrl)
+        id: pack
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            JFVER="${TAG}.0"
+          else
+            JFVER="$TAG"
+          fi
+          ZIP_NAME="live-matches_${JFVER}.zip"
+          cd bin/Release/net9.0
+          zip -q "$GITHUB_WORKSPACE/$ZIP_NAME" Jellyfin.Plugin.StreamedPk.dll meta.json
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "jfver=$JFVER" >> "$GITHUB_OUTPUT"
+
+      - name: MD5 checksum
+        run: |
+          ZIP_NAME="${{ steps.pack.outputs.zip_name }}"
+          SUM=$(md5sum "$GITHUB_WORKSPACE/$ZIP_NAME" | awk '{print $1}')
+          echo "### Package: $ZIP_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "**MD5:** \`$SUM\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "If this does not match \`manifest.json\` → \`versions[0].checksum\`, update the manifest and push." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.zip_name }}
+          generate_release_notes: true
