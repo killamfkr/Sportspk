@@ -12,7 +12,7 @@
         "changelog": "Fix channel playback: MediaSource Id now matches Jellyfin item id (fixes empty playback / wrong screen).",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/killamfkr/Sportspk/releases/download/v1.3.1/live-matches_1.3.1.0.zip",
-        "checksum": "baf273f89ba9c10619f2d03bd9cd0cb5",
+        "checksum": "f290ce517d9905b80a784bc0e81aa7b2",
         "timestamp": "2026-03-31T18:00:00Z"
       },
       {

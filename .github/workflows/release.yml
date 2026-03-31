@@ -1,5 +1,6 @@
-# Build and attach the plugin zip to a GitHub Release when you push a version tag (e.g. v1.3.0).
-# If the MD5 differs from manifest.json (Linux zip vs Windows), update the checksum in manifest.json and push.
+# Build and attach the plugin zip when you push a version tag (e.g. v1.3.1).
+# Uses Windows + Compress-Archive so the release zip matches local .\scripts\build-plugin-package.ps1
+# and the checksum you commit in manifest.json (same as a typical dev machine).
 
 name: Release plugin package
 
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -25,32 +26,29 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
-      - name: Create zip (name matches Jellyfin manifest sourceUrl)
+      - name: Create zip (PowerShell; matches build-plugin-package.ps1)
         id: pack
+        shell: pwsh
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            JFVER="${TAG}.0"
-          else
-            JFVER="$TAG"
-          fi
-          ZIP_NAME="live-matches_${JFVER}.zip"
-          cd bin/Release/net9.0
-          zip -q "$GITHUB_WORKSPACE/$ZIP_NAME" Jellyfin.Plugin.StreamedPk.dll meta.json
-          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
-          echo "jfver=$JFVER" >> "$GITHUB_OUTPUT"
-
-      - name: MD5 checksum (must match manifest.json for Jellyfin installs)
-        run: |
-          ZIP_NAME="${{ steps.pack.outputs.zip_name }}"
-          SUM=$(md5sum "$GITHUB_WORKSPACE/$ZIP_NAME" | awk '{print $1}')
-          echo "### Package: $ZIP_NAME" >> "$GITHUB_STEP_SUMMARY"
-          echo "**MD5 (paste into \`manifest.json\` → \`versions[0].checksum\`):**" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "$SUM" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Jellyfin refuses to install if this value does not match the published zip." >> "$GITHUB_STEP_SUMMARY"
+          $tag = $env:GITHUB_REF -replace '^refs/tags/v',''
+          if ($tag -match '^\d+\.\d+\.\d+$') {
+            $jfver = "$tag.0"
+          } else {
+            $jfver = $tag
+          }
+          $zipName = "live-matches_${jfver}.zip"
+          $bin = Join-Path $env:GITHUB_WORKSPACE "bin\Release\net9.0"
+          $dll = Join-Path $bin "Jellyfin.Plugin.StreamedPk.dll"
+          $meta = Join-Path $bin "meta.json"
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE $zipName
+          Compress-Archive -LiteralPath $dll, $meta -DestinationPath $zipPath -Force
+          $md5 = (Get-FileHash -Path $zipPath -Algorithm MD5).Hash.ToLowerInvariant()
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "zip_name=$zipName"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "md5=$md5"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Package: $zipName"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**MD5:** ``$md5``"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "Ensure ``manifest.json`` lists this checksum for this version so Jellyfin catalog installs succeed."
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
