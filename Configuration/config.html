@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Matches</title>
+</head>
+<body>
+    <div id="configPage" data-role="page" class="page type-interior pluginConfigurationPage configPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <h1>Live Matches (Streamed.pk / PPV.to / CDN Live)</h1>
+                <p class="fieldDescription">
+                    Top level: <strong>Streamed.pk</strong> (Live / Today / All + sports), <strong>PPV.to</strong> (categories of iframe streams), and <strong>CDN Live</strong> (online channels + sports by tournament).
+                    Third-party feeds may change; you are responsible for complying with their terms and for rights to any content you play.
+                </p>
+                <form class="configForm">
+                    <label class="checkboxContainer">
+                        <input is="emby-checkbox" type="checkbox" id="enableChannel" />
+                        <span>Enable Live Matches channel</span>
+                    </label>
+                    <label class="checkboxContainer">
+                        <input is="emby-checkbox" type="checkbox" id="enableStreamedPk" />
+                        <span>Show Streamed.pk provider</span>
+                    </label>
+                    <label class="checkboxContainer">
+                        <input is="emby-checkbox" type="checkbox" id="enablePpvTo" />
+                        <span>Show PPV.to provider</span>
+                    </label>
+                    <label class="checkboxContainer">
+                        <input is="emby-checkbox" type="checkbox" id="enableCdnLive" />
+                        <span>Show CDN Live provider</span>
+                    </label>
+                    <label class="checkboxContainer">
+                        <input is="emby-checkbox" type="checkbox" id="tryResolveEmbed" />
+                        <span>Try to resolve embed / player pages to direct stream URLs before playback</span>
+                    </label>
+                    <div class="inputContainer">
+                        <label for="apiBaseUrl">Streamed.pk API base URL (no trailing slash)</label>
+                        <input is="emby-input" type="text" id="apiBaseUrl" placeholder="https://streamed.pk" />
+                    </div>
+                    <div class="inputContainer">
+                        <label for="ppvStreamsUrl">PPV.to streams JSON URL</label>
+                        <input is="emby-input" type="text" id="ppvStreamsUrl" placeholder="https://old.ppv.to/api/streams" />
+                    </div>
+                    <div class="inputContainer">
+                        <label for="cdnChannelsUrl">CDN Live channels URL</label>
+                        <input is="emby-input" type="text" id="cdnChannelsUrl" />
+                    </div>
+                    <div class="inputContainer">
+                        <label for="cdnSportsUrl">CDN Live sports events URL</label>
+                        <input is="emby-input" type="text" id="cdnSportsUrl" />
+                    </div>
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var PluginConfig = {
+                pluginId: "a1f3c8d2-6e4b-4a9f-9c7e-2b8d5e1f3a0c"
+            };
+
+            document.querySelector('.configPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(PluginConfig.pluginId).then(function (config) {
+                        document.querySelector('#enableChannel').checked = config.EnableChannel !== false;
+                        document.querySelector('#enableStreamedPk').checked = config.EnableStreamedPk !== false;
+                        document.querySelector('#enablePpvTo').checked = config.EnablePpvTo !== false;
+                        document.querySelector('#enableCdnLive').checked = config.EnableCdnLive !== false;
+                        document.querySelector('#tryResolveEmbed').checked = config.TryResolveEmbedToDirectStream !== false;
+                        document.querySelector('#apiBaseUrl').value = config.ApiBaseUrl || 'https://streamed.pk';
+                        document.querySelector('#ppvStreamsUrl').value = config.PpvStreamsUrl || 'https://old.ppv.to/api/streams';
+                        document.querySelector('#cdnChannelsUrl').value = config.CdnChannelsUrl || 'https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free';
+                        document.querySelector('#cdnSportsUrl').value = config.CdnSportsUrl || 'https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free';
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('.configForm')
+                .addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(PluginConfig.pluginId).then(function (config) {
+                        config.EnableChannel = document.querySelector('#enableChannel').checked;
+                        config.EnableStreamedPk = document.querySelector('#enableStreamedPk').checked;
+                        config.EnablePpvTo = document.querySelector('#enablePpvTo').checked;
+                        config.EnableCdnLive = document.querySelector('#enableCdnLive').checked;
+                        config.TryResolveEmbedToDirectStream = document.querySelector('#tryResolveEmbed').checked;
+                        config.ApiBaseUrl = document.querySelector('#apiBaseUrl').value.trim() || 'https://streamed.pk';
+                        config.PpvStreamsUrl = document.querySelector('#ppvStreamsUrl').value.trim() || 'https://old.ppv.to/api/streams';
+                        config.CdnChannelsUrl = document.querySelector('#cdnChannelsUrl').value.trim() || 'https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free';
+                        config.CdnSportsUrl = document.querySelector('#cdnSportsUrl').value.trim() || 'https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free';
+                        ApiClient.updatePluginConfiguration(PluginConfig.pluginId, config).then(function () {
+                            Dashboard.hideLoadingMsg();
+                            Dashboard.alert('Settings saved.');
+                        });
+                    });
+                });
+        </script>
+    </div>
+</body>
+</html>
