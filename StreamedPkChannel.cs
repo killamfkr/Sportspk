@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text;
 using Jellyfin.Plugin.StreamedPk.Configuration;
 using MediaBrowser.Controller.Channels;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.Dto;
@@ -26,9 +28,17 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
     private const string DefaultCdnChannelsUrl = "https://api.cdn-live.tv/api/v1/channels/?user=cdnlivetv&plan=free";
     private const string DefaultCdnSportsUrl = "https://api.cdn-live.tv/api/v1/events/sports/?user=cdnlivetv&plan=free";
 
+    /// <summary>
+    /// Jellyfin combines channel item ExternalId, channel name, and this suffix before hashing to the library item Guid
+    /// (see <c>ChannelManager.GetIdToHash</c>). Dynamic media sources must use the same Guid string as <c>MediaSourceInfo.Id</c>
+    /// so the client’s <c>mediaSourceId</c> (from the item DTO) matches playback.
+    /// </summary>
+    private const string JellyfinChannelIdVersionSuffix = "16";
+
     private readonly StreamedPkClient _client;
     private readonly PlayTorrioFeedsClient _feeds;
     private readonly EmbedPageStreamResolver _embedResolver;
+    private readonly ILibraryManager _libraryManager;
     private readonly ILogger<StreamedPkChannel> _logger;
 
     /// <summary>
@@ -38,11 +48,13 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         StreamedPkClient client,
         PlayTorrioFeedsClient feeds,
         EmbedPageStreamResolver embedResolver,
+        ILibraryManager libraryManager,
         ILogger<StreamedPkChannel> logger)
     {
         _client = client;
         _feeds = feeds;
         _embedResolver = embedResolver;
+        _libraryManager = libraryManager;
         _logger = logger;
     }
 
@@ -54,7 +66,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         "PlayTorrio-style sources: Streamed.pk (Live / Today / All), PPV.to categories, and CDN Live channels & sports.";
 
     /// <inheritdoc />
-    public string DataVersion => "streamed-pk-channel-4-ppv-cdn";
+    public string DataVersion => "streamed-pk-channel-5-playback-source-id";
 
     /// <inheritdoc />
     public string HomePageUrl => "https://streamed.pk";
@@ -95,7 +107,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 return [];
             }
 
-            return await BuildMediaSourcesAsync(row.Iframe, "PPV.to", cancellationToken).ConfigureAwait(false);
+            return await BuildMediaSourcesAsync(id, row.Iframe, "PPV.to", cancellationToken).ConfigureAwait(false);
         }
 
         if (TryParseCdnMediaId(id, out var cdnKey))
@@ -109,7 +121,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 return [];
             }
 
-            return await BuildMediaSourcesAsync(playback, "CDN Live", cancellationToken).ConfigureAwait(false);
+            return await BuildMediaSourcesAsync(id, playback, "CDN Live", cancellationToken).ConfigureAwait(false);
         }
 
         if (!TryParseMediaItemId(id, out var source, out var eventId, out var streamId))
@@ -124,7 +136,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
             return [];
         }
 
-        return await BuildMediaSourcesAsync(stream.EmbedUrl, "Streamed.pk", cancellationToken).ConfigureAwait(false);
+        return await BuildMediaSourcesAsync(id, stream.EmbedUrl, "Streamed.pk", cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -216,7 +228,14 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
     private static StreamedPkPluginConfiguration GetConfig() =>
         Plugin.Instance?.Configuration ?? new StreamedPkPluginConfiguration();
 
+    private string GetChannelVideoMediaSourceId(string channelExternalId)
+    {
+        var key = channelExternalId + Name + JellyfinChannelIdVersionSuffix;
+        return _libraryManager.GetNewItemId(key, typeof(Video)).ToString("N", CultureInfo.InvariantCulture);
+    }
+
     private async Task<IEnumerable<MediaSourceInfo>> BuildMediaSourcesAsync(
+        string channelExternalId,
         string initialUrl,
         string friendlySourceName,
         CancellationToken cancellationToken)
@@ -246,12 +265,13 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         [
             new MediaSourceInfo
             {
-                Id = "live-matches-" + friendlySourceName + "-" + PlayTorrioFeedsClient.StableUrlKey(playbackUrl),
+                Id = GetChannelVideoMediaSourceId(channelExternalId),
                 Name = sourceLabel,
                 Path = playbackUrl,
                 Protocol = MediaProtocol.Http,
                 IsRemote = true,
                 IsInfiniteStream = true,
+                VideoType = VideoType.VideoFile,
                 SupportsDirectPlay = true,
                 SupportsDirectStream = true,
                 SupportsTranscoding = true,
