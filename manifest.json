@@ -12,7 +12,7 @@
         "changelog": "Catalog release: Streamed.pk, PPV.to, CDN Live; Jellyfin plugin repository support.",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/killamfkr/Sportspk/releases/download/v1.3.0/live-matches_1.3.0.0.zip",
-        "checksum": "17dea3fbf0f90c695c5973ee2dfa54ae",
+        "checksum": "7f5ff3f8b093e7e7785ca2dcf08f1a89",
         "timestamp": "2026-03-31T12:00:00Z"
       }
     ]
