@@ -70,7 +70,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         "Sports-style channel browsing: Streamed.pk schedules, PPV.to categories, and CDN Live — with optional embed-to-stream resolution.";
 
     /// <inheritdoc />
-    public string DataVersion => "streamed-pk-channel-7-primary-image-ui";
+    public string DataVersion => "streamed-pk-channel-8-playback-readrate";
 
     /// <inheritdoc />
     public string HomePageUrl => "https://streamed.pk";
@@ -309,7 +309,9 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Protocol = MediaProtocol.Http,
                 IsRemote = true,
                 IsInfiniteStream = true,
-                ReadAtNativeFramerate = true,
+                // Jellyfin maps this to ffmpeg "-re" on the input. For HTTP/HLS that throttles reads to realtime,
+                // which often stalls transcoding or causes clients to bail back to the previous screen.
+                ReadAtNativeFramerate = false,
                 VideoType = VideoType.VideoFile,
                 SupportsDirectPlay = supportsDirectPlay,
                 SupportsDirectStream = true,
@@ -317,10 +319,11 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Container = container,
                 AnalyzeDurationMs = 10_000,
                 RequiredHttpHeaders = BuildLiveStreamHttpHeaders(originalUrl, playbackUrl),
+                // Hints only (no probe yet). Helps StreamBuilder pick a transcode path; ffmpeg still inspects the real stream.
                 MediaStreams =
                 [
-                    new MediaStream { Type = MediaStreamType.Video, Index = -1, IsInterlaced = false },
-                    new MediaStream { Type = MediaStreamType.Audio, Index = -1 }
+                    new MediaStream { Type = MediaStreamType.Video, Index = -1, IsInterlaced = false, Codec = "h264" },
+                    new MediaStream { Type = MediaStreamType.Audio, Index = -1, Codec = "aac" }
                 ]
             }
         ];
@@ -350,6 +353,11 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         }
 
         headers["Referer"] = referer;
+        if (Uri.TryCreate(referer, UriKind.Absolute, out var rUri) && rUri.Scheme is ("http" or "https"))
+        {
+            headers["Origin"] = rUri.GetLeftPart(UriPartial.Authority);
+        }
+
         return headers;
     }
 
