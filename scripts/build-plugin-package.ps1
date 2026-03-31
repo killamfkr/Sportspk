@@ -13,7 +13,7 @@ if (-not (Test-Path $dll)) { throw "Build output missing: $dll" }
 
 $artifacts = Join-Path $root "artifacts"
 New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
-$zipName = "live-matches_1.3.1.0.zip"
+$zipName = "live-matches_1.3.2.0.zip"
 $zipPath = Join-Path $artifacts $zipName
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Compress-Archive -Path $dll, $meta -DestinationPath $zipPath -Force
@@ -23,4 +23,4 @@ Write-Host ""
 Write-Host "Created: $zipPath"
 Write-Host "MD5 (for manifest.json): $md5"
 Write-Host ""
-Write-Host "Upload this zip to GitHub Release v1.3.1 as: $zipName"
+Write-Host "Upload this zip to GitHub Release v1.3.2 as: $zipName"

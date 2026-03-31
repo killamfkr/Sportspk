@@ -53,6 +53,14 @@ Plugin settings (Dashboard → Plugins → Live Matches):
 - PPV and CDN feed URLs (defaults match the public endpoints used by similar apps)  
 - Optional: resolve embed/player pages to direct HLS/DASH URLs before playback  
 
+## Playback (important)
+
+Jellyfin plays these feeds by **pulling the stream on the server** (often **remux/transcode** to HLS for the app). That means:
+
+- **Video transcoding** should be allowed for the user, and **FFmpeg** must work on the server.  
+- Many CDNs only allow browser-like requests; this plugin sends **Referer** (the original embed/player URL) and a **Chrome User-Agent** on the stream URL.  
+- Feeds that only load the real URL inside **opaque JavaScript**, or use **DRM**, will **not** work without a real browser player.
+
 ## Disclaimer
 
 Third-party APIs and streams are outside this project. You are responsible for complying with their terms and for rights to any content you play.

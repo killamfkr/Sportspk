@@ -66,7 +66,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         "PlayTorrio-style sources: Streamed.pk (Live / Today / All), PPV.to categories, and CDN Live channels & sports.";
 
     /// <inheritdoc />
-    public string DataVersion => "streamed-pk-channel-5-playback-source-id";
+    public string DataVersion => "streamed-pk-channel-6-live-http-headers";
 
     /// <inheritdoc />
     public string HomePageUrl => "https://streamed.pk";
@@ -130,7 +130,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         }
 
         var streams = await _client.GetStreamsAsync(source, eventId, cancellationToken).ConfigureAwait(false);
-        var stream = streams.FirstOrDefault(s => string.Equals(s.Id, streamId, StringComparison.Ordinal));
+        var stream = streams.FirstOrDefault(s => string.Equals(s.Id, streamId, StringComparison.OrdinalIgnoreCase));
         if (stream is null || string.IsNullOrWhiteSpace(stream.EmbedUrl))
         {
             return [];
@@ -234,6 +234,9 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         return _libraryManager.GetNewItemId(key, typeof(Video)).ToString("N", CultureInfo.InvariantCulture);
     }
 
+    private const string BrowserLikeUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
     private async Task<IEnumerable<MediaSourceInfo>> BuildMediaSourcesAsync(
         string channelExternalId,
         string initialUrl,
@@ -241,7 +244,8 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         CancellationToken cancellationToken)
     {
         var tryResolve = GetConfig().TryResolveEmbedToDirectStream;
-        var playbackUrl = initialUrl.Trim();
+        var originalUrl = initialUrl.Trim();
+        var playbackUrl = originalUrl;
         if (tryResolve)
         {
             try
@@ -259,7 +263,17 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
         }
 
         var container = InferContainer(playbackUrl);
-        var sourceLabel = UsesResolvedDirectUrl(playbackUrl, initialUrl) ? friendlySourceName + " (direct)" : friendlySourceName;
+        var sourceLabel = UsesResolvedDirectUrl(playbackUrl, originalUrl) ? friendlySourceName + " (direct)" : friendlySourceName;
+
+        // Remote HLS/DASH is usually remuxed/transcoded by the server; direct-play often fails on clients.
+        // Progressive MP4 over HTTP can direct-play.
+        var hlsOrDash = string.Equals(container, "hls", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(container, "mpd", StringComparison.OrdinalIgnoreCase)
+                        || playbackUrl.Contains(".m3u", StringComparison.OrdinalIgnoreCase)
+                        || playbackUrl.Contains(".mpd", StringComparison.OrdinalIgnoreCase);
+        var mp4Like = string.Equals(container, "mp4", StringComparison.OrdinalIgnoreCase)
+                      || playbackUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase);
+        var supportsDirectPlay = !hlsOrDash && mp4Like;
 
         return
         [
@@ -271,11 +285,14 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Protocol = MediaProtocol.Http,
                 IsRemote = true,
                 IsInfiniteStream = true,
+                ReadAtNativeFramerate = true,
                 VideoType = VideoType.VideoFile,
-                SupportsDirectPlay = true,
+                SupportsDirectPlay = supportsDirectPlay,
                 SupportsDirectStream = true,
                 SupportsTranscoding = true,
                 Container = container,
+                AnalyzeDurationMs = 10_000,
+                RequiredHttpHeaders = BuildLiveStreamHttpHeaders(originalUrl, playbackUrl),
                 MediaStreams =
                 [
                     new MediaStream { Type = MediaStreamType.Video, Index = -1, IsInterlaced = false },
@@ -283,6 +300,33 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 ]
             }
         ];
+    }
+
+    /// <summary>
+    /// CDNs and embed players often reject ffmpeg unless Referer/User-Agent match a normal browser request.
+    /// </summary>
+    private static Dictionary<string, string> BuildLiveStreamHttpHeaders(string originalUrl, string playbackUrl)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["User-Agent"] = BrowserLikeUserAgent
+        };
+
+        var referer = originalUrl.Trim();
+        if (!Uri.TryCreate(referer, UriKind.Absolute, out var refererUri) || refererUri.Scheme is not ("http" or "https"))
+        {
+            if (Uri.TryCreate(playbackUrl, UriKind.Absolute, out var playUri) && playUri.Scheme is ("http" or "https"))
+            {
+                referer = playUri.GetLeftPart(UriPartial.Authority) + "/";
+            }
+            else
+            {
+                return headers;
+            }
+        }
+
+        headers["Referer"] = referer;
+        return headers;
     }
 
     private static bool UsesResolvedDirectUrl(string playbackUrl, string embedUrl) =>

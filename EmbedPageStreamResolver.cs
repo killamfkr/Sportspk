@@ -12,12 +12,23 @@ namespace Jellyfin.Plugin.StreamedPk;
 /// </summary>
 public sealed class EmbedPageStreamResolver
 {
-    private const int MaxHtmlScanBytes = 524_288;
+    private const int MaxHtmlScanBytes = 1_048_576;
 
-    private static readonly Regex UrlInTextRegex = new(
+    private static readonly Regex UrlExplicitManifestRegex = new(
         @"https?://[^\s""'<>]+\.(?:m3u8|mpd)(?:\?[^\s""'<>]*)?",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
+        TimeSpan.FromSeconds(2));
+
+    /// <summary>Playlist URL where "m3u8" appears in the query or path fragment.</summary>
+    private static readonly Regex UrlLooseM3u8Regex = new(
+        @"https?://[^\s""'<>]+[?&][^\s""'<>]*m3u8[^\s""'<>]*",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(2));
+
+    private static readonly Regex ProtocolRelativeRegex = new(
+        @"//[^\s""'<>]+\.(?:m3u8|mpd)(?:\?[^\s""'<>]*)?",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(2));
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<EmbedPageStreamResolver> _logger;
@@ -126,9 +137,10 @@ public sealed class EmbedPageStreamResolver
                 }
 
                 var text = Encoding.UTF8.GetString(span);
-                if (contentType is null or "text/html" or "application/xhtml+xml" or "application/javascript" or "text/javascript")
+                if (contentType is null or "text/html" or "application/xhtml+xml" or "application/javascript" or "text/javascript"
+                    or "application/json" or "text/plain")
                 {
-                    var found = FindFirstStreamUrl(text);
+                    var found = FindFirstStreamUrl(text, finalUri);
                     if (found is not null)
                     {
                         return found;
@@ -157,10 +169,17 @@ public sealed class EmbedPageStreamResolver
         }
 
         var path = u.AbsolutePath;
-        return path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
-               || path.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase)
-               || path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
-               || path.EndsWith(".ts", StringComparison.OrdinalIgnoreCase);
+        if (path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".mpd", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".ts", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var q = u.Query;
+        return q.Contains("m3u8", StringComparison.OrdinalIgnoreCase)
+               || q.Contains("format=m3u8", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsDirectStreamContentType(string? mediaType)
@@ -176,16 +195,77 @@ public sealed class EmbedPageStreamResolver
                || mediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string? FindFirstStreamUrl(string htmlOrJs)
+    private static string? FindFirstStreamUrl(string htmlOrJs, Uri pageUri)
     {
-        foreach (Match m in UrlInTextRegex.Matches(htmlOrJs))
+        foreach (Match m in UrlExplicitManifestRegex.Matches(htmlOrJs))
         {
-            if (m.Success && Uri.TryCreate(m.Value, UriKind.Absolute, out _))
+            if (m.Success && TryNormalizeUrl(m.Value, pageUri, out var abs))
             {
-                return m.Value;
+                return abs;
+            }
+        }
+
+        foreach (Match m in UrlLooseM3u8Regex.Matches(htmlOrJs))
+        {
+            if (m.Success && TryNormalizeUrl(m.Value, pageUri, out var abs))
+            {
+                return abs;
+            }
+        }
+
+        foreach (Match m in ProtocolRelativeRegex.Matches(htmlOrJs))
+        {
+            if (!m.Success)
+            {
+                continue;
+            }
+
+            var withScheme = "https:" + m.Value;
+            if (TryNormalizeUrl(withScheme, pageUri, out var abs))
+            {
+                return abs;
+            }
+        }
+
+        // Relative path like /path/playlist.m3u8?token=x
+        var rel = Regex.Matches(
+            htmlOrJs,
+            @"(?<=[""'])(\/[^""'\s<>]+\.(?:m3u8|mpd)(?:\?[^""'\s<>]*)?)(?=[""'])",
+            RegexOptions.IgnoreCase,
+            TimeSpan.FromSeconds(2));
+        foreach (Match m in rel)
+        {
+            if (m.Success && TryNormalizeUrl(m.Value, pageUri, out var abs))
+            {
+                return abs;
             }
         }
 
         return null;
+    }
+
+    private static bool TryNormalizeUrl(string raw, Uri baseUri, out string absolute)
+    {
+        absolute = string.Empty;
+        var trimmed = raw.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return false;
+        }
+
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var absUri)
+            && absUri.Scheme is ("http" or "https"))
+        {
+            absolute = absUri.ToString();
+            return true;
+        }
+
+        if (Uri.TryCreate(baseUri, trimmed, out var relative))
+        {
+            absolute = relative.ToString();
+            return true;
+        }
+
+        return false;
     }
 }
