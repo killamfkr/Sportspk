@@ -12,7 +12,7 @@
         "changelog": "Live playback: browser Referer/User-Agent for ffmpeg, longer HLS probe, disable HLS direct-play (remux/transcode), richer embed URL extraction.",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/killamfkr/Sportspk/releases/download/v1.3.2/live-matches_1.3.2.0.zip",
-        "checksum": "fb3e085a376b16245d8a0bdd986a7211",
+        "checksum": "793f173a5ceb9c7ee2fbc7f46468ef2a",
         "timestamp": "2026-03-31T20:00:00Z"
       },
       {
