@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using Jellyfin.Plugin.StreamedPk.Configuration;
 using MediaBrowser.Controller.Channels;
@@ -6,6 +7,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Channels;
+using MediaBrowser.Model.Drawing;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
@@ -35,6 +37,8 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
     /// </summary>
     private const string JellyfinChannelIdVersionSuffix = "16";
 
+    private const string ChannelThumbResourceName = "Jellyfin.Plugin.StreamedPk.Assets.channel-thumb.png";
+
     private readonly StreamedPkClient _client;
     private readonly PlayTorrioFeedsClient _feeds;
     private readonly EmbedPageStreamResolver _embedResolver;
@@ -63,10 +67,10 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
 
     /// <inheritdoc />
     public string Description =>
-        "PlayTorrio-style sources: Streamed.pk (Live / Today / All), PPV.to categories, and CDN Live channels & sports.";
+        "Sports-style channel browsing: Streamed.pk schedules, PPV.to categories, and CDN Live — with optional embed-to-stream resolution.";
 
     /// <inheritdoc />
-    public string DataVersion => "streamed-pk-channel-6-live-http-headers";
+    public string DataVersion => "streamed-pk-channel-7-primary-image-ui";
 
     /// <inheritdoc />
     public string HomePageUrl => "https://streamed.pk";
@@ -219,11 +223,31 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
     }
 
     /// <inheritdoc />
-    public Task<DynamicImageResponse> GetChannelImage(ImageType type, CancellationToken cancellationToken) =>
-        Task.FromResult(new DynamicImageResponse { HasImage = false });
+    public Task<DynamicImageResponse> GetChannelImage(ImageType type, CancellationToken cancellationToken)
+    {
+        if (type != ImageType.Primary)
+        {
+            return Task.FromResult(new DynamicImageResponse { HasImage = false });
+        }
+
+        var asm = typeof(StreamedPkChannel).Assembly;
+        var stream = asm.GetManifestResourceStream(ChannelThumbResourceName);
+        if (stream is null)
+        {
+            _logger.LogWarning("Missing embedded channel image: {Resource}", ChannelThumbResourceName);
+            return Task.FromResult(new DynamicImageResponse { HasImage = false });
+        }
+
+        return Task.FromResult(new DynamicImageResponse
+        {
+            HasImage = true,
+            Stream = stream,
+            Format = ImageFormat.Png
+        });
+    }
 
     /// <inheritdoc />
-    public IEnumerable<ImageType> GetSupportedChannelImages() => [];
+    public IEnumerable<ImageType> GetSupportedChannelImages() => [ImageType.Primary];
 
     private static StreamedPkPluginConfiguration GetConfig() =>
         Plugin.Instance?.Configuration ?? new StreamedPkPluginConfiguration();
@@ -433,7 +457,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "Streamed.pk",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "Live now / Today / All, sport tabs, streamed.pk sources",
+                Overview = "Live, today, and full schedules — filter by sport, then pick a source.",
                 DateModified = utc
             });
         }
@@ -446,7 +470,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "PPV.to",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "PPV.to streams (embed playback)",
+                Overview = "Browse by category; playback uses each stream’s embed URL.",
                 DateModified = utc
             });
         }
@@ -459,7 +483,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "CDN Live",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "CDN Live TV channels and sports events",
+                Overview = "Live TV channels and sports events from the configured CDN feed.",
                 DateModified = utc
             });
         }
@@ -478,7 +502,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "Live now",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "Matches from /api/matches/live",
+                Overview = "Currently airing matches from the live feed.",
                 DateModified = utc
             },
             new ChannelItemInfo
@@ -487,7 +511,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "Today's schedule",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "Matches from /api/matches/all-today",
+                Overview = "Today’s full schedule.",
                 DateModified = utc
             },
             new ChannelItemInfo
@@ -496,7 +520,7 @@ public sealed class StreamedPkChannel : IChannel, IRequiresMediaInfoCallback
                 Name = "All matches",
                 Type = ChannelItemType.Folder,
                 FolderType = ChannelFolderType.Container,
-                Overview = "Matches from /api/matches/all",
+                Overview = "Full match list (may be large).",
                 DateModified = utc
             }
         ];

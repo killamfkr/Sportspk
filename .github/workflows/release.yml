@@ -40,8 +40,9 @@ jobs:
           $bin = Join-Path $env:GITHUB_WORKSPACE "bin\Release\net9.0"
           $dll = Join-Path $bin "Jellyfin.Plugin.StreamedPk.dll"
           $meta = Join-Path $bin "meta.json"
+          $thumb = Join-Path $bin "channel-thumb.png"
           $zipPath = Join-Path $env:GITHUB_WORKSPACE $zipName
-          Compress-Archive -Path $dll, $meta -DestinationPath $zipPath -Force
+          Compress-Archive -Path $dll, $meta, $thumb -DestinationPath $zipPath -Force
           $md5 = (Get-FileHash -Path $zipPath -Algorithm MD5).Hash.ToLowerInvariant()
           Add-Content -Path $env:GITHUB_OUTPUT -Value "zip_name=$zipName"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "md5=$md5"

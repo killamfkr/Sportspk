@@ -30,10 +30,12 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Configuration\config.html" />
+    <EmbeddedResource Include="Assets\channel-thumb.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="meta.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\channel-thumb.png" Link="channel-thumb.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

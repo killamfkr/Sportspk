@@ -7,50 +7,65 @@
     <div id="configPage" data-role="page" class="page type-interior pluginConfigurationPage configPage" data-require="emby-input,emby-button,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
-                <h1>Live Matches (Streamed.pk / PPV.to / CDN Live)</h1>
+                <h1>Live Matches</h1>
                 <p class="fieldDescription">
-                    Top level: <strong>Streamed.pk</strong> (Live / Today / All + sports), <strong>PPV.to</strong> (categories of iframe streams), and <strong>CDN Live</strong> (online channels + sports by tournament).
-                    Third-party feeds may change; you are responsible for complying with their terms and for rights to any content you play.
+                    Sports-style <strong>Channels</strong> browsing: pick a source, then matches or feeds. Playback runs on your server (transcoding may apply).
+                    You must comply with each provider’s terms and only access content you are entitled to watch.
                 </p>
+
                 <form class="configForm">
-                    <label class="checkboxContainer">
-                        <input is="emby-checkbox" type="checkbox" id="enableChannel" />
-                        <span>Enable Live Matches channel</span>
-                    </label>
-                    <label class="checkboxContainer">
-                        <input is="emby-checkbox" type="checkbox" id="enableStreamedPk" />
-                        <span>Show Streamed.pk provider</span>
-                    </label>
-                    <label class="checkboxContainer">
-                        <input is="emby-checkbox" type="checkbox" id="enablePpvTo" />
-                        <span>Show PPV.to provider</span>
-                    </label>
-                    <label class="checkboxContainer">
-                        <input is="emby-checkbox" type="checkbox" id="enableCdnLive" />
-                        <span>Show CDN Live provider</span>
-                    </label>
-                    <label class="checkboxContainer">
-                        <input is="emby-checkbox" type="checkbox" id="tryResolveEmbed" />
-                        <span>Try to resolve embed / player pages to direct stream URLs before playback</span>
-                    </label>
-                    <div class="inputContainer">
-                        <label for="apiBaseUrl">Streamed.pk API base URL (no trailing slash)</label>
-                        <input is="emby-input" type="text" id="apiBaseUrl" placeholder="https://streamed.pk" />
+                    <div class="verticalSection verticalSection-extrabottompadding">
+                        <h2 class="sectionTitle">Channel</h2>
+                        <p class="fieldDescription">Register the channel in Jellyfin and choose which top-level providers appear.</p>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="enableChannel" />
+                            <span>Enable <strong>Live Matches</strong> channel</span>
+                        </label>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="enableStreamedPk" />
+                            <span>Show <strong>Streamed.pk</strong> (live / today / all, sports)</span>
+                        </label>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="enablePpvTo" />
+                            <span>Show <strong>PPV.to</strong> (categories)</span>
+                        </label>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="enableCdnLive" />
+                            <span>Show <strong>CDN Live</strong> (channels &amp; sports)</span>
+                        </label>
                     </div>
-                    <div class="inputContainer">
-                        <label for="ppvStreamsUrl">PPV.to streams JSON URL</label>
-                        <input is="emby-input" type="text" id="ppvStreamsUrl" placeholder="https://old.ppv.to/api/streams" />
+
+                    <div class="verticalSection verticalSection-extrabottompadding">
+                        <h2 class="sectionTitle">Playback</h2>
+                        <p class="fieldDescription">When enabled, the server tries to find HLS/DASH links inside embed or player pages before handing the URL to the player.</p>
+                        <label class="checkboxContainer">
+                            <input is="emby-checkbox" type="checkbox" id="tryResolveEmbed" />
+                            <span>Resolve embed / player pages to direct stream URLs when possible</span>
+                        </label>
                     </div>
-                    <div class="inputContainer">
-                        <label for="cdnChannelsUrl">CDN Live channels URL</label>
-                        <input is="emby-input" type="text" id="cdnChannelsUrl" />
+
+                    <div class="verticalSection verticalSection-extrabottompadding">
+                        <h2 class="sectionTitle">Endpoints</h2>
+                        <p class="fieldDescription">Defaults match typical public endpoints. Change only if you mirror an API or a provider moves URLs.</p>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="apiBaseUrl" label="Streamed.pk base URL" placeholder="https://streamed.pk" />
+                            <div class="fieldDescription">No trailing slash. Example: <code>https://streamed.pk</code></div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="ppvStreamsUrl" label="PPV.to streams JSON" placeholder="https://old.ppv.to/api/streams" />
+                            <div class="fieldDescription">Full URL returning the <code>streams</code> JSON document.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="cdnChannelsUrl" label="CDN Live — channels list" />
+                            <div class="fieldDescription">JSON with an online <code>channels</code> array.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input is="emby-input" type="text" id="cdnSportsUrl" label="CDN Live — sports events" />
+                            <div class="fieldDescription">JSON with a <code>cdn-live-tv</code> object of sport buckets.</div>
+                        </div>
                     </div>
-                    <div class="inputContainer">
-                        <label for="cdnSportsUrl">CDN Live sports events URL</label>
-                        <input is="emby-input" type="text" id="cdnSportsUrl" />
-                    </div>
-                    <br />
-                    <div>
+
+                    <div class="verticalSection">
                         <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
                     </div>
                 </form>

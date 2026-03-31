@@ -33,7 +33,7 @@ public class Plugin : BasePlugin<StreamedPkPluginConfiguration>, IHasWebPages
 
     /// <inheritdoc />
     public override string Description =>
-        "PlayTorrio-style Live Matches: Streamed.pk (Live / Today / All), PPV.to categories, and CDN Live channels & sports.";
+        "Sports channels: Streamed.pk schedules, PPV.to categories, and CDN Live — with server-side stream handling and configurable feeds.";
 
     /// <inheritdoc />
     public override string ConfigurationFileName => "Jellyfin.Plugin.StreamedPk.xml";
